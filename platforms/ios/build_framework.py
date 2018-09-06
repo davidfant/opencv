@@ -70,7 +70,7 @@ class Builder:
             os.makedirs(res)
         return os.path.abspath(res)
 
-    def _build(self, outdir):
+    def _build(self, outdir, cmake_flags):
         outdir = os.path.abspath(outdir)
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
@@ -95,21 +95,21 @@ class Builder:
             mainBD = self.getBD(mainWD, t)
             dirs.append(mainBD)
 
-            cmake_flags = []
+            target_cmake_flags = []
             if self.contrib:
-                cmake_flags.append("-DOPENCV_EXTRA_MODULES_PATH=%s" % self.contrib)
+                target_cmake_flags.append("-DOPENCV_EXTRA_MODULES_PATH=%s" % self.contrib)
             if xcode_ver >= 7 and t[1] == 'iPhoneOS' and self.bitcodedisabled == False:
-                cmake_flags.append("-DCMAKE_C_FLAGS=-fembed-bitcode")
-                cmake_flags.append("-DCMAKE_CXX_FLAGS=-fembed-bitcode")
-            self.buildOne(t[0], t[1], mainBD, cmake_flags)
+                target_cmake_flags.append("-DCMAKE_C_FLAGS=-fembed-bitcode")
+                target_cmake_flags.append("-DCMAKE_CXX_FLAGS=-fembed-bitcode")
+            self.buildOne(t[0], t[1], mainBD, target_cmake_flags + cmake_flags)
 
             if self.dynamic == False:
                 self.mergeLibs(mainBD)
         self.makeFramework(outdir, dirs)
 
-    def build(self, outdir):
+    def build(self, outdir, cmake_flags):
         try:
-            self._build(outdir)
+            self._build(outdir, cmake_flags)
         except Exception as e:
             print("="*60, file=sys.stderr)
             print("ERROR: %s" % e, file=sys.stderr)
@@ -277,6 +277,7 @@ if __name__ == "__main__":
     parser.add_argument('--without', metavar='MODULE', default=[], action='append', help='OpenCV modules to exclude from the framework')
     parser.add_argument('--dynamic', default=False, action='store_true', help='build dynamic framework (default is "False" - builds static framework)')
     parser.add_argument('--disable-bitcode', default=False, dest='bitcodedisabled', action='store_true', help='disable bitcode (enabled by default)')
+    parser.add_argument('--cmake-flags', default=[], dest='cmake_flags', nargs='*', help='additional cmake flags')
     args = parser.parse_args()
 
     b = iOSBuilder(args.opencv, args.contrib, args.dynamic, args.bitcodedisabled, args.without,
@@ -287,4 +288,5 @@ if __name__ == "__main__":
             (["armv7", "armv7s", "arm64"], "iPhoneOS"),
             (["i386", "x86_64"], "iPhoneSimulator"),
         ])
-    b.build(args.out)
+
+    b.build(args.out, ['-D{}'.format(flag) for flag in args.cmake_flags])
